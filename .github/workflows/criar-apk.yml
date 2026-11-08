@@ -1,53 +1,55 @@
+
 name: Criar APK Android
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
-  criar-apk:
-    name: Gerar APK
+  build:
+    name: Compilar APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Baixar projeto
         uses: actions/checkout@v4
 
-      - name: Preparar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Preparar Java
+      - name: Configurar Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: '17'
 
-      - name: Instalar Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Extrair jogo
+      - name: Localizar e extrair jogo
         run: |
-          mkdir extracted
           ZIP=$(find . -maxdepth 1 -iname "*.zip" | head -n 1)
-          test -n "$ZIP"
-          unzip -q "$ZIP" -d extracted
-          INDEX=$(find extracted -name index.html -type f | head -n 1)
-          test -n "$INDEX"
+          if [ -z "$ZIP" ]; then
+            echo "ERRO: ZIP do jogo não encontrado na raiz."
+            exit 1
+          fi
+          mkdir projeto
+          unzip -q "$ZIP" -d projeto
+          INDEX=$(find projeto -type f -name index.html | head -n 1)
+          if [ -z "$INDEX" ]; then
+            echo "ERRO: index.html não encontrado."
+            exit 1
+          fi
           mkdir www
           cp -a "$(dirname "$INDEX")"/. www/
 
-      - name: Criar projeto Android
+      - name: Criar aplicativo Android
         run: |
           npm init -y
-          npm install @capacitor/core @capacitor/android
-          npm install -D @capacitor/cli
-          npx cap init "Carreira de Craque" com.guilherme.carreiradecraque --web-dir=www
+          npm install @capacitor/core@6 @capacitor/android@6
+          npm install --save-dev @capacitor/cli@6
+          npx cap init "Carreira de Craque" "com.carreiradecraque.game" --web-dir=www
           npx cap add android
           npx cap sync android
 
